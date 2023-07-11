@@ -20,11 +20,12 @@ module.exports = {
         ]
     },
     entry: {
-        pcp: [path.resolve(__dirname,'scripts/pcp/pcp.js')],
-        topdown: [path.resolve(__dirname,'scripts/topdown/topdown.js')]
+        // pcp: [path.resolve(__dirname,'scripts/pcp/pcp.js')],
+        // topdown: [path.resolve(__dirname,'scripts/topdown/topdown.js')],
+        ami: [path.resolve(__dirname,'scripts/advanced_metadata_interface/ami.js')]
     },
     output: {
-        publicPath: path.resolve(__dirname, 'static/'),
+        // publicPath: path.resolve(__dirname, 'static/'),
         filename: '[name]_bundle.js',
         path: path.resolve(__dirname, 'static/')
         // filename: '[name]_bundle.js',
@@ -34,15 +35,20 @@ module.exports = {
         minimize: false
     },
     plugins:[
+        // new HtmlWebpackPlugin({
+        //     template: 'templates/pcp.html',
+        //     chunks: ['pcp'],
+        //     filename: 'pcp_bundle.html'
+        // }),
+        // new HtmlWebpackPlugin({
+        //     template: 'templates/topdown.html',
+        //     chunks: ['topdown'],
+        //     filename: 'topdown_bundle.html'
+        // }),
         new HtmlWebpackPlugin({
-            template: 'templates/pcp.html',
-            chunks: ['pcp'],
-            filename: 'pcp_bundle.html'
-        }),
-        new HtmlWebpackPlugin({
-            template: 'templates/topdown.html',
-            chunks: ['topdown'],
-            filename: 'topdown_bundle.html'
+            template: 'templates/ami.html',
+            chunks: ['ami'],
+            filename: 'ami_bundle.html'
         })
     ],
     mode: 'production'
