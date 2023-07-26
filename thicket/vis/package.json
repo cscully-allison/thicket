@@ -26,6 +26,8 @@
     "@reduxjs/toolkit": "^1.8.3",
     "d3": "^7.6.1",
     "redux": "^4.2.0",
+    "svelte": "^4.0.5",
+    "svelte-loader": "^3.1.9",
     "vega-embed": "^6.21.0",
     "vega-lite": "^5.6.0"
   }

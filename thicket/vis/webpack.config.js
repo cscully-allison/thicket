@@ -2,6 +2,15 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
 
 module.exports = {
+    resolve: {
+        // see below for an explanation
+        alias: {
+          svelte: path.resolve('node_modules', 'svelte/src/runtime') // Svelte 3: path.resolve('node_modules', 'svelte')
+        },
+        extensions: ['.mjs', '.js', '.svelte'],
+        mainFields: ['svelte', 'browser', 'module', 'main'],
+        conditionNames: ['svelte', 'browser', 'import']
+    },
     module:{
         rules:[
             {
@@ -16,13 +25,25 @@ module.exports = {
                     cwd: path.resolve(__dirname),
                     presets:["@babel/preset-env"]
                 }
+            },
+            {
+                test: /\.(html|svelte)$/,
+                use: 'svelte-loader'
+            },
+            {
+                // required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
+                test: /node_modules\/svelte\/.*\.mjs$/,
+                resolve: {
+                    fullySpecified: false
+                }
             }
+            
         ]
     },
     entry: {
         // pcp: [path.resolve(__dirname,'scripts/pcp/pcp.js')],
         // topdown: [path.resolve(__dirname,'scripts/topdown/topdown.js')],
-        ami: [path.resolve(__dirname,'scripts/advanced_metadata_interface/ami.js')]
+        ami: [path.resolve(__dirname,'scripts/advanced_metadata_interface/main.js')]
     },
     output: {
         // publicPath: path.resolve(__dirname, 'static/'),
@@ -46,7 +67,7 @@ module.exports = {
         //     filename: 'topdown_bundle.html'
         // }),
         new HtmlWebpackPlugin({
-            template: 'templates/ami.html',
+            // template: 'templates/ami.html',
             chunks: ['ami'],
             filename: 'ami_bundle.html'
         })
