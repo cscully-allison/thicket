@@ -231,14 +231,16 @@ class MetadataCard{
                     .attr('width', this._icon_dims[1])
                     .attr('x', this._inner_margin)
                     .attr('y', this._inner_margin)
-                    .attr('fill', 'rgb(150,80,80)');
+                    .attr('fill', 'none')
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', 2);
         
         this._text_tag.text(()=>{
                         return this.truncate_string(this._data.name, 14);
                     })
                     .attr('x', this._inner_margin + this._text_left)
-                    .attr('y', this._inner_margin)
-                    .attr('dominant-baseline', 'hanging')
+                    .attr('y', this._height/2)
+                    .attr('dominant-baseline', 'central')
                     .attr('font-family', 'Arial, Helvetica, sans-serif');
 
         this._triangle.attr('points', `0,${this._triangle_dims[1]/2}  ${this._triangle_dims[0]},${this._triangle_dims[1]} ${this._triangle_dims[0]},0`)
@@ -266,7 +268,6 @@ class MetadataCard{
             .attr('height', this._expanded_vis_height)
             .attr('width', this._expanded_vis_width)
             .attr('transform', `translate(${this._inner_margin},${this._height+this._expanded_vis_top_margin})`);
-            // .on('click', ()=>this.handle_expand());
                 
                               
     }
@@ -360,8 +361,6 @@ class CategoricalCard extends MetadataCard{
         this._x_layout_scale = d3.scaleLinear().domain([0,2]).range([0, this._spark_vis_width]);
         this._y_layout_scale = d3.scaleLinear().domain([0,2]).range([0, this._spark_vis_height]);
         this._opacity_scale = d3.scaleLinear().domain([this._render_data[0].freq, this._render_data[(this._render_data.length-1)].freq]).range([1, 0.25])
-
-
         this._bar_row_scale = d3.scaleLinear().domain([0,this._array_distro.length]).range([0, this._bar_areas_height]);
         this._bar_length_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0, this._bar_width]);
         
@@ -386,7 +385,6 @@ class CategoricalCard extends MetadataCard{
     render(){
         const self = this;
         super.render();
-
 
         this._spark_vis.selectAll('.category')
                         .data(this._render_data)
@@ -470,10 +468,28 @@ class OrdinalCard extends MetadataCard{
         this._label_y_margin = 8;
 
         /**
+         * Layout Vars for Full Sized Vis
+         */
+        this._bottom_axis_margin = 30;
+        this._bar_right_margin = 20;
+        this._bar_areas_height = this._expanded_vis_height - this._bottom_axis_margin;
+        this._bar_row_height = this._bar_areas_height/this._array_distro.length;
+        this._bar_label_width = 80;
+        this._bar_label_marign = 5;
+        this._fullsize_bar_width = this._expanded_vis_width - this._bar_label_width - this._bar_right_margin;
+
+        /**
          * Scales
         */
        this._bar_x_scale = d3.scaleLinear().domain([0, this._array_distro.length]).range([0, this._bar_area_width]);
        this._bar_height_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0, this._spark_vis_height]);
+
+       /**
+        * Full sized chart scales
+        */
+        this._bar_row_scale = d3.scaleLinear().domain([0,this._array_distro.length]).range([0, this._bar_areas_height]);
+        this._bar_length_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0, this._fullsize_bar_width]);
+        
 
         /**
          * Text to either side of bars
@@ -498,17 +514,21 @@ class OrdinalCard extends MetadataCard{
                         .attr('text-anchor', 'end')
                         .attr('font-family', 'monospace')
                         .attr('font-size', '.9em')
-                        .attr('x', 0)
-                        // .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[0].freq));
+                        .attr('x', 0);
         
         this._label_right.append('text')
                 .text(_sig_fig_display(this._array_distro[this._array_distro.length-1].key))
                 .attr('class','label-right')
                 .attr('font-family', 'monospace')
                 .attr('font-size', '.9em')
-                .attr('x', 0)
-                // .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[this._array_distro.length-1].freq));
+                .attr('x', 0);
 
+        let x_axis = d3.axisBottom(this._bar_length_scale);
+
+        this._expanded_vis.append("g")
+            .attr('class', 'expanded-vis-bottom-axis')
+            .attr("transform", `translate(${this._bar_label_width}, ${this._bar_areas_height})`)
+            .call(x_axis);
 
         
     }
@@ -536,6 +556,31 @@ class OrdinalCard extends MetadataCard{
 
                 }   
             );
+
+        this._expanded_vis.selectAll('.bar-row')
+            .data(this._array_distro)
+            .join(
+                (enter)=>{
+                    let bar_row = enter.append('g')
+                                        .attr('class', 'bar-row')
+                                        .attr('transform', (d,i)=>{return `translate(${0},${this._bar_row_scale(i)})`});
+
+                    bar_row.append('text')
+                            .text((d)=>_sig_fig_display(d.key))
+                            .attr('dominant-baseline', 'central')
+                            .attr('font-family', 'monospace')
+                            .attr('text-anchor', 'end')
+                            .attr('x', this._bar_label_width - this._bar_label_marign)
+                            .attr('y', this._bar_row_height/2);
+
+                    bar_row.append('rect')
+                            .attr('x', this._bar_label_width)
+                            .attr('width', (d)=>{return this._bar_length_scale(d.freq)})
+                            .attr('height', this._bar_row_height)
+                            .attr('fill', 'rgb(50,50,100)');
+                }
+            )
+
 
             
     }
@@ -579,9 +624,14 @@ class ContiniousCard extends MetadataCard{
          * Layout vars
         */
         this._hist_margin = 10;
+        this._hist_left_margin = 10;
+        this._hist_right_margin = 30;
         this._hist_top_margin = 10;
         this._hist_bottom_margin = 10;
-        this._hist_area_width = this._spark_vis_width-(this._hist_margin*2);
+        this._label_x_margin = 3;
+        this._label_y_margin = 8;
+
+        this._hist_area_width = this._spark_vis_width-(this._hist_left_margin+this._hist_right_margin);
         this._hist_area_height = this._spark_vis_height;
         this._bar_width = this._hist_area_width/this._buckets.length;
 
@@ -597,14 +647,38 @@ class ContiniousCard extends MetadataCard{
         */
         this._histogram_area = this._spark_vis.append('g')
                                             .attr('class', 'histogram-area')
-                                            .attr('transform', `translate(${this._hist_margin},${0})`);
+                                            .attr('transform', `translate(${this._hist_left_margin},${0})`);
         
-        this._path_area = this._histogram_area.append('path')
-                                            .attr('class', 'hist-path')
-                                            .attr('fill', 'none')
-                                            .attr('stroke', 'rgb(120,60,60)')
-                                            .attr('stroke-width', '3px')
-                                            .attr('d', '');
+        // this._path_area = this._histogram_area.append('path')
+        //                                     .attr('class', 'hist-path')
+        //                                     .attr('fill', 'none')
+        //                                     .attr('stroke', 'rgb(120,60,60)')
+        //                                     .attr('stroke-width', '3px')
+        //                                     .attr('d', '');
+
+        this._label_left = this._spark_vis.append('g')
+                                            .attr('class', 'label-left-grp')
+                                            .attr('transform', `translate(${(this._hist_x_scale(this._buckets[0]['x0']) - this._label_x_margin) + this._hist_left_margin},${this._label_y_margin})`);
+            
+        this._label_right = this._spark_vis.append('g')
+                                            .attr('class', 'label-right-grp')
+                                            .attr('transform', `translate(${(this._hist_x_scale(this._buckets[this._buckets.length-1]['x1']) + this._label_x_margin) + this._hist_left_margin},${this._label_y_margin})`);
+
+
+        this._label_left.append('text')
+                        .text(_sig_fig_display(this._buckets[0]['x0']))
+                        .attr('class','label-left')
+                        .attr('text-anchor', 'end')
+                        .attr('font-family', 'monospace')
+                        .attr('font-size', '.9em')
+                        .attr('x', 0);
+        
+        this._label_right.append('text')
+                .text(_sig_fig_display(this._buckets[this._buckets.length-1]['x1']))
+                .attr('class','label-right')
+                .attr('font-family', 'monospace')
+                .attr('font-size', '.9em')
+                .attr('x', 0);
 
     }
 
@@ -616,7 +690,6 @@ class ContiniousCard extends MetadataCard{
             }
             else{
                 path.lineTo(this._hist_x_scale(bins[d].x0), this._hist_area_height-this._hist_y_scale(bins[d].length));
-                // console.log(this.name, d, bins[d], bins[d].length, this._hist_y_scale(bins[d].length));
             }
         }
 
@@ -695,7 +768,7 @@ export class AdvancedMetadataInterface{
         for(let n of $vis_state.expanded){
             const idx = ordered_names.indexOf(n);
             if(idx > -1){
-                this._expanded_indicies.push(idx)
+                this._expanded_indicies.push(idx);
             }
         }
     }
@@ -872,7 +945,6 @@ onMount(()=>{
                     md_overview['values'].push({'profile':profile.profile, 'value':profile[key]});
                 }
 
-                
                 md_overview['type'] = data_categorizer(md_overview);
                 affix_sd_and_var_to_data(md_overview);
 
