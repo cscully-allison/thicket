@@ -1,5 +1,5 @@
 <script>
-import * as d3 from 'd3';
+import d3 from '../assets/d3';
 import { onMount } from 'svelte';
 import { vis_state } from './stores';
 
@@ -70,7 +70,7 @@ function data_categorizer(md_obj){
 
     let test_val = md_obj.values[0].value;
 
-    if(typeof(test_val) === typeof("")){
+    if(typeof(test_val) === typeof("") || md_obj.name === "compilerversion"){
         let test_dict = {};
 
         for(let val of md_obj.values){
@@ -108,6 +108,35 @@ function data_categorizer(md_obj){
 
 }
 
+function _sig_fig_display(number){
+    let neg_flag = false;
+    if(number < 0){
+        number *= -1;
+        neg_flag = true;
+    }
+    if(number >= 0 && number < 10){
+        return `${number}`.slice(0,4);
+    }
+    else if(number >= 10){
+        number = Math.floor(number);
+        if (number >= 10 && number < 1000){
+            return `${number}`;
+        }
+        else if (number >= 1000 && number < 1e6){
+            let trunc =`${number}`.slice(0,-3); 
+            return trunc + 'K';
+        }
+        else if (number >= 1e6 && number < 1e9){
+            let trunc =`${number}`.slice(0,-6);
+            return trunc + 'M';
+        }
+        else if (number >= 1e9 && number < 1e12 ){
+            let trunc =`${number}`.slice(0,-9);
+            return trunc + 'B';
+        }   
+    }
+}
+
 class MetadataCard{
     constructor(view_tag, min_height, max_height, width, metadata){
         this._group = d3.select(view_tag);
@@ -116,7 +145,7 @@ class MetadataCard{
         this._width = width;
         this._data = metadata;
         this._is_expanded = false;
-        
+
         /**
          * Public Vars
          */
@@ -143,6 +172,11 @@ class MetadataCard{
         this._expanded_vis_top_margin = 0;
         this._expanded_vis_height = this._expanded_height - this._height - (this._expanded_vis_top_margin);
         this._expanded_vis_width = this._width - (this._inner_margin*2);
+
+        /**
+         * Other vars
+        */
+        this._color_map = {'continious':'red', 'categorical':'blue', 'ordinal':'purple'};
 
         this.init();
     }
@@ -187,7 +221,6 @@ class MetadataCard{
         this._expanded_vis = this._group.append('g');
         
 
-        // console.log(this._data, this._group);
         this._card_field.attr('height', this._height)
                                 .attr('width', this._width)
                                 .attr('fill', 'rgba(200,200,200)')
@@ -239,7 +272,6 @@ class MetadataCard{
     }
 
     render(){
-        console.log("card render is called");
         const self = this;
 
         this._card_field.attr('height', ()=>{
@@ -423,57 +455,59 @@ class OrdinalCard extends MetadataCard{
             this._array_distro.push({'key': key, 'freq': metadata.distribution[key]})
         }
 
-        console.log(this._array_distro);
 
 
         /**
          * Layout Vars
         */
-        this._bar_area_margin = 10;
-        this._bar_area_width = this._spark_vis_width-(this._bar_area_margin*2);
-
+        this._bar_area_margin = 0;
+        this._bar_margin_right = 30;
+        this._bar_margin_left = 10;
         this._bar_max_width = 45;
+        this._bar_area_width = this._spark_vis_width-(this._bar_margin_left+this._bar_margin_right);
         this._bar_width = Math.min(this._bar_max_width, this._bar_area_width / this._array_distro.length);
+        this._label_x_margin = 3;
+        this._label_y_margin = 8;
 
         /**
          * Scales
         */
-       this._bar_x_scale = d3.scaleLinear().domain([0, this._array_distro.length]).range([0,this._bar_area_width]);
-       this._bar_height_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0,this._spark_vis_height]);
+       this._bar_x_scale = d3.scaleLinear().domain([0, this._array_distro.length]).range([0, this._bar_area_width]);
+       this._bar_height_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0, this._spark_vis_height]);
 
         /**
          * Text to either side of bars
         */
        
         this._bar_area =  this._spark_vis.append('g')
-                                        .attr('class', 'bar-grp')
-                                        .attr('transform', `translate(${this._bar_area_margin},${0})`);
+                                            .attr('class', 'bar-grp')
+                                            .attr('transform', `translate(${this._bar_margin_left},${0})`);
 
-        // this._label_left = this._spark_vis.append('g')
-        //                                 .attr('class', 'label-left-grp')
-        //                                 .attr('transform', `translate(${this._bar_x_scale(0)},${0})`);
+        this._label_left = this._spark_vis.append('g')
+                                            .attr('class', 'label-left-grp')
+                                            .attr('transform', `translate(${(this._bar_x_scale(0) - this._label_x_margin) + this._bar_margin_left},${this._label_y_margin})`);
+            
+        this._label_right = this._spark_vis.append('g')
+                                            .attr('class', 'label-right-grp')
+                                            .attr('transform', `translate(${(this._bar_x_scale(this._array_distro.length) + this._label_x_margin) + this._bar_margin_left},${this._label_y_margin})`);
+
+
+        this._label_left.append('text')
+                        .text(_sig_fig_display(this._array_distro[0].key))
+                        .attr('class','label-left')
+                        .attr('text-anchor', 'end')
+                        .attr('font-family', 'monospace')
+                        .attr('font-size', '.9em')
+                        .attr('x', 0)
+                        // .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[0].freq));
         
-        // this._label_left.append('text')
-        //                 .text(this.truncate_string(this._array_distro[0].key, 3))
-        //                 .attr('class','label-left')
-        //                 // .attr('fill', 'white')
-        //                 .attr('font-family', 'monospace')
-        //                 .attr('font-size', '.9em')
-        //                 .attr('x', 0)
-        //                 .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[0].freq));
-        
-
-        // this._label_right = this._spark_vis.append('g')
-        //                 .attr('class', 'label-right-grp')
-        //                 .attr('transform', `translate(${this._bar_x_scale(this._array_distro.length-1)},${0})`);
-
-        // this._label_right.append('text')
-        //         .text(this.truncate_string(this._array_distro[this._array_distro.length-1].key, 3))
-        //         .attr('class','label-right')
-        //         .attr('font-family', 'monospace')
-        //         .attr('font-size', '.9em')
-        //         .attr('x', 0)
-        //         .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[this._array_distro.length-1].freq));
+        this._label_right.append('text')
+                .text(_sig_fig_display(this._array_distro[this._array_distro.length-1].key))
+                .attr('class','label-right')
+                .attr('font-family', 'monospace')
+                .attr('font-size', '.9em')
+                .attr('x', 0)
+                // .attr('y', this._spark_vis_height-this._bar_height_scale(this._array_distro[this._array_distro.length-1].freq));
 
 
         
@@ -510,7 +544,7 @@ class OrdinalCard extends MetadataCard{
 class ContiniousCard extends MetadataCard{
     constructor(view_tag, min_height, max_height, width, metadata){
         super(view_tag, min_height, max_height, width, metadata);
-        console.log("continious", metadata);
+        console.log("continious output:");
 
 
         /**
@@ -522,74 +556,98 @@ class ContiniousCard extends MetadataCard{
         for(let v of metadata.values){
             this._raw_vals.push(v.value);
         }
-
         this._raw_vals = this._raw_vals.sort((a,b)=>a-b);
-        console.log(this._raw_vals);
         this._quartiles = [
             d3.quantile(this._raw_vals, .25), 
             d3.quantile(this._raw_vals, .5), 
             d3.quantile(this._raw_vals, .75)
         ];
+        
+        /**
+         * Histogram data
+         */
+        let bin = d3.bin();
+        this._buckets = bin(this._raw_vals);
+        this._max_freq = Number.MIN_SAFE_INTEGER;
 
-        console.log(this._min_val, this._quartiles, this._max_val);
+        for(const b of this._buckets){
+            this._max_freq = Math.max(this._max_freq, b['length']);
+        }
+        
 
         /**
          * Layout vars
         */
-        this._boxplot_margin = 10;
-        this._boxplot_area_width = this._spark_vis_width-(this._boxplot_margin*2);
+        this._hist_margin = 10;
+        this._hist_top_margin = 10;
+        this._hist_bottom_margin = 10;
+        this._hist_area_width = this._spark_vis_width-(this._hist_margin*2);
+        this._hist_area_height = this._spark_vis_height;
+        this._bar_width = this._hist_area_width/this._buckets.length;
+
 
         /**
          * Scales
          */
-        this._boxplot_x_scale = d3.scaleLinear().domain([this._min_val, this._max_val]).range([0, this._boxplot_area_width]);
+        this._hist_x_scale = d3.scaleLinear().domain([this._buckets[0]['x0'], this._buckets[this._buckets.length-1]['x1']]).range([0, this._hist_area_width]);
+        this._hist_y_scale = d3.scaleLinear().domain([0, this._max_freq]).range([0, this._hist_area_height]);
 
         /**
          * Make drawing order groups
         */
-        this._boxplot_area = this._spark_vis.append('g')
-                                            .attr('class', 'boxplot-area')
-                                            .attr('transform', `translate(${this._boxplot_margin},${0})`)
+        this._histogram_area = this._spark_vis.append('g')
+                                            .attr('class', 'histogram-area')
+                                            .attr('transform', `translate(${this._hist_margin},${0})`);
+        
+        this._path_area = this._histogram_area.append('path')
+                                            .attr('class', 'hist-path')
+                                            .attr('fill', 'none')
+                                            .attr('stroke', 'rgb(120,60,60)')
+                                            .attr('stroke-width', '3px')
+                                            .attr('d', '');
 
-        this._whisker_line = this._boxplot_area.append('path');
-        this._left_whisker = this._boxplot_area.append('path');
-        this._right_whisker = this._boxplot_area.append('path');
-        this._box = this._boxplot_area.append('rect');
-        this._midline = this._boxplot_area.append('path');
+    }
 
+    _make_path(bins){
+        let path = d3.path();
+        for(const d in bins){
+            if(d == 0){
+                path.moveTo(this._hist_x_scale(bins[d].x0), this._hist_area_height-this._hist_y_scale(bins[d].length));
+            }
+            else{
+                path.lineTo(this._hist_x_scale(bins[d].x0), this._hist_area_height-this._hist_y_scale(bins[d].length));
+                // console.log(this.name, d, bins[d], bins[d].length, this._hist_y_scale(bins[d].length));
+            }
+        }
 
-
+        return path.toString();
     }
 
     render(){
         const self = this;
         super.render();
+       
+        /**
+         * Get path of contour for sparkline
+        */
+        // const contour = this._make_path(this._buckets);
+        // this._path_area.attr('d', contour);
 
-        let boxplot_width = this._boxplot_x_scale(this._quartiles[2]) - this._boxplot_x_scale(this._quartiles[0]);
-
-        this._whisker_line
-            .attr('d',`M${this._boxplot_x_scale(this._min_val)},${this._spark_vis_height/2}L${this._boxplot_x_scale(this._max_val)},${this._spark_vis_height/2}`)
-            .attr('stroke', 'black');
-
-        this._left_whisker
-            .attr('d',`M${this._boxplot_x_scale(this._min_val)},${0}L${this._boxplot_x_scale(this._min_val)},${this._spark_vis_height}`)
-            .attr('stroke', 'black');
-
-        this._right_whisker
-            .attr('d',`M${this._boxplot_x_scale(this._max_val)},${0}L${this._boxplot_x_scale(this._max_val)},${this._spark_vis_height}`)
-            .attr('stroke', 'black');
-
-        this._box
-            .attr('height', this._spark_vis_height)
-            .attr('width', boxplot_width)
-            .attr('x', this._boxplot_x_scale(this._quartiles[0]))
-            .style('stroke', 'black')
-            .style('stroke-width', '1px')
-            .attr('fill', 'white');
-
-        this._midline
-            .attr('d',`M${this._boxplot_x_scale(this._quartiles[1])},${0}L${this._boxplot_x_scale(this._quartiles[1])},${this._spark_vis_height}`)
-            .attr('stroke', 'black');
+        
+        this._histogram_area
+            .selectAll('.spark-hist-bars')
+            .data(this._buckets)
+            .join(
+                (enter)=>{
+                    enter.append('rect')
+                         .attr('class', 'spark-hist-bars')
+                         .attr('width', this._bar_width)
+                         .attr('height', (d)=>self._hist_y_scale(d.length))
+                         .attr('fill', 'rgb(120,60,60)')
+                         .attr('x', (d)=>self._hist_x_scale(d.x0))
+                         .attr('y', (d)=>this._hist_area_height - self._hist_y_scale(d.length));
+                }
+            )
 
         
     }
@@ -679,9 +737,9 @@ export class AdvancedMetadataInterface{
     }
 
     view_init(){
-        this._view.style('width', this._width+10+'px')
+        this._view.style('width', this._width+25+'px')
                 .style('max-height', '500px')
-                .style('overflow', 'scroll');
+                .style('overflow-y', 'scroll');
 
         this._svg = this._view
                         .append('svg')
@@ -711,7 +769,7 @@ export class AdvancedMetadataInterface{
     render(){
         const self = this;
 
-        console.log("Render is called");
+        // console.log("Render is called");
         // console.log(this._ensem_metadata);
 
         //update data changes
@@ -831,7 +889,6 @@ onMount(()=>{
         ami.set_view_tag(d3.select('#view'));
         ami.view_init();
 
-        console.log("pre-render");
         ami.render();
 
     });
